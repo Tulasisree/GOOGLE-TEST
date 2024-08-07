@@ -1,0 +1,195 @@
+Unit Test:
+    1. shd be executed independently
+    2. run fast(milliseconds)
+    3. Isolated entity //doesnt rely on external input 
+
+Types of testing 
+    1. Unit test: one unit of code
+    2.Integration testing : combined functionality of all modules put together, (client-server, individual appns)
+    3.System testing: end-to-end testing , black-box type of testing (code is not available)
+
+Test Structure
+    AAA: Arrange - Act - Assert
+
+Arrage : set all inputs and preconditions(creating objects, var, etc...)
+Act : Call the method under test
+Assert : Check that the results are correct
+
+Advantages:
+    Separation - What is tested separated from setup and result varification. 
+
+Assertion results:
+Success
+Failure 
+    Fatal : if condn is not satisfied test stops executing
+        ASSERT_*
+        ASSERT_TRUE(condn) - test that given condn is true , ASSERT_FALSE(condn)
+        ASSERT_EQ, ASSERT_NE , ASSERT_LT , ASSERT_LE , ASSERT_GT , ASSERT_GE
+    Non Fatal : tests continues even if it is failed
+        EXPECT_*
+        EXPECT_TRUE , EXPECT_FALSE
+        EXPECT_EQ , EXPECT_NE , EXPECT_LT , EXPECT_LE , EXPECT_GT , EXPECT_GE
+
+Assertions on C-Strings(char*) :
+    Wchar_t* is also accepted
+        ASSERT_STREQ(x,y) , EXPECT_STREQ(x,y); , STRNE
+        ignore case:
+        ASSERT_STRCASEEQ(x,y) , EXPECT_STRCASEEQ(x,y) , NE;
+
+Assertions on Exceptions:
+    Fatal:
+        ASSERT_THROW(stmt, exception) //throws expections of exact types
+        ASSERT_ANY_THROW(stmt)  //throws an exception of any type
+        ASSERT_NO_THROW(stmt)   //throws no exception
+    Non Fatal :
+        same with EXPECT_
+
+TEST FIXTURES:
+    It is a class dervied from Test in testing namespace
+    write tests by reusing code in test setup()
+    // we can rewrite the below functions in our fixtures
+        testing::Test {
+            Setup() // called before each test
+            TearDown() // called after each test
+
+            SetUpTestCase() // before entire test suite
+            TearDownTestCase() //after entire test suite 
+        }
+    to create test fixture we need to use TEST_F(MyFixture, TestName)
+    testsuite name shd be same as fixture name
+    TEST_F not TEST
+    fixture object is created for each test case
+
+why contructor/ destructor when we have setup / TearDown
+    assign members as const
+    subclass your test fixture 
+        you may forget to explicitly call setup() and teardown()
+
+setup/teardown :
+    when you must call virtual methods
+    (virtual methods called in constructore is not polymorphic, it calls base methods)
+    We cannot use ASSERT_* in constructors (since they are fatal)
+    Do not call code that can throw exceptions in destructor - use TearDown()
+
+
+TEST PARAMETERS:
+same code , different values = !=
+avoid duplication
+HOW TO USE: 
+    testing :: TestWithParam<T>
+    TEST_P
+    Setuptestcase and teradowntestcase shd be called publicly
+    INSTANTIATE_TEST_SUITE_P(prefix, test_suite_name, __VA_ARGS__) => to generate tests from params
+GENERATORS:
+    Range => Range(begin,end,[step])
+    values => Values(x1,x2...x3)
+    ValuesIn => ValuesIn(containers & iterators)
+    Bool => True & False
+    Combine => Combine(gen1, gen2...) cartesian prod of 2 or more GENERATORS
+
+
+
+// =================================================================================================================
+//                                    GMOCK
+//==================================================================================================================
+
+a type of test double.
+Replacing the real object with fake one.
+useful for isolation and collaboration tests
+Let say code in that class makes db changes , we dont want to really change db but mock them (checking if fun called with what params)
+
+Test Doubles :
+Fakes:
+    working implementation
+    takes shortcuts
+    not suitable for production
+    ex : in-memory database
+Stub:
+    responds with predefined data (replacing real server with minimal one repsonding with predefined data)
+Mock:
+    can responds with predefined data but can also have expectations 
+        - throws/doesnt throw expections 
+        - calls methods
+MOCKING METHODS:
+    Current:
+        MOCK_METHOD(return_type, methodName, (Args..))
+            - int sum(int a,int b); -> MOCK_METHOD(int, sum , (int,int));
+        MOCK_METHOD((return_type), methodName, (Args..)) 
+            - return type contains "," 
+            - map<int,int> foo(float x); -> MOCK_METHODS((map<int,int>), foo, (int,int));
+        MOCK_METHOD(return_type, methodName, (Args..), specs) 
+            - SPECS -> const, override, noexcept
+            - void foo() const -> MOCK_METHOD(void, foo, (), const);
+    old version:
+        MOCK_METHODn(name, returntype(param1 , param2....)); // n -> no. of parameters
+        MOCK_CONST_METHODn(..........)
+
+=====================
+Setting Expectations:
+=====================
+ON_CALL VS EXPECT_CALL
+ON_CALL : sets the behaviour when a method gets called
+EXPECT_CALL : ON_CALL + expectations
+    ex: method will be called , with what args,etc.
+
+Examples:
+Check the number of calls:
+    - EXPECT_CALL(someObject, someMethod).Times(2)
+check number of args:
+    - EXPECT_CALL(someObject, someMethods("expected arg"))
+
+Matchers:
+    More generic expectations (ex: Arg is >10)
+
+======================
+Setting Mock behaviour
+======================
+ACTION(ThrowSomeException){
+    throw runtime_error("Dummy error");
+}
+EXPECT_CALL(object, method()).WillOnce(ThrowSomeException());
+
+Setting action/return value:
+    - WillOnce
+    - WillRepeatedly
+    - WillByDefault
+    - Return 
+    - ReturnRef
+
+RETURN EXAMPLE:
+    EXPECT_CALL(object, method()).WillRepeatedly(Return(6));
+
+Expected number of calls:
+    - AnyNumber()
+    - AtLeast(n)
+    - AtMost(n)
+    - Between(m,n)
+    - Exactly(n) or n
+
+=========================
+Matchers
+==========================
+Exact Value : method called iwth certain value
+    EXPECT_CALL(obj, methods(5,"Hello))
+
+matchers for more generic/complex way of checking
+Arg is greater/lower :
+    EXPECT_CALL(obj, methods(Gt(5))); [ Ge, Lt, Le, Eq];
+Anything ("_") :
+    EXPECT_CALL(obj, methods(Gt(5),_)); 
+
+IsNull() / IsNotNull for checking against Null
+
+String matchers:
+    HasSubstr("substring");
+
+Matchers can be combined:
+AllOf() -> All conditions needs to be true
+AnyOf() -> any of the matchers needs to be true
+    EXPECT_CALL(inb, methods(AllOf(Gt(5), Le(100), Not(7))));
+    //Args is >5, <100 , !-7
+
+AllOfArray() / AnyOfArray() , Not() to negate matchers
+
+Can be used in assertions:
+    ASSERT_THAT -> useful for assertions in vector 
